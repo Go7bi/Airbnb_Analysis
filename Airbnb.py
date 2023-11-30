@@ -1,208 +1,134 @@
-# Importing Libraries
-import pandas as pd
-import pymongo
 import streamlit as st
-import plotly.express as px
 from streamlit_option_menu import option_menu
+import plotly.express as px
+import pandas as pd
+import os
 from PIL import Image
+import warnings
 
-# Setting up page configuration
-icon = Image.open("ICN.png")
-st.set_page_config(page_title= "Airbnb Data Visualization | By Jafar Hussain",
-                   page_icon= icon,
-                   layout= "wide",
-                   initial_sidebar_state= "expanded",
-                   menu_items={'About': """# This dashboard app is created by *Jafar Hussain*!
-                                        Data has been gathered from mongodb atlas"""}
-                  )
 
-# Creating option menu in the side bar
-with st.sidebar:
-    selected = option_menu("Menu", ["Home","Overview","Explore"], 
-                           icons=["house","graph-up-arrow","bar-chart-line"],
-                           menu_icon= "menu-button-wide",
-                           default_index=0,
-                           styles={"nav-link": {"font-size": "20px", "text-align": "left", "margin": "-2px", "--hover-color": "#FF5A5F"},
-                                   "nav-link-selected": {"background-color": "#FF5A5F"}}
-                          )
+warnings.filterwarnings('ignore')
+st.set_page_config(page_title="AIRBNB-Analysis",layout="wide")
+def setting_bg():
+    st.markdown(f""" <style>.stApp {{
+                        background:url("Home.jpg");
+                        background-size: cover}}
+                     </style>""", unsafe_allow_html=True)
 
-# CREATING CONNECTION WITH MONGODB ATLAS AND RETRIEVING THE DATA
-client = pymongo.MongoClient("mongodb+srv://vedhagobi:Gobi_7890@airbnb.qm26xtw.mongodb.net/")
-db = client.sample_airbnb
-col = db.listingsAndReviews
 
-# READING THE CLEANED DATAFRAME
-df = pd.read_csv('Airbnb_data.csv')
+setting_bg()
 
-# HOME PAGE
-if selected == "Home":
-    # Title Image
-    st.image("title.png")
-    col1,col2 = st.columns(2,gap= 'medium')
-    col1.markdown("## :blue[Domain] : Travel Industry, Property Management and Tourism")
-    col1.markdown("## :blue[Technologies used] : Python, Pandas, Plotly, Streamlit, MongoDB")
-    col1.markdown("## :blue[Overview] : To analyze Airbnb data using MongoDB Atlas, perform data cleaning and preparation, develop interactive visualizations, and create dynamic plots to gain insights into pricing variations, availability patterns, and location-based trends. ")
-    col2.markdown("#   ")
-    col2.markdown("#   ")
-    col2.image("home.jpg")
-    
-# OVERVIEW PAGE
-if selected == "Overview":
-    tab1,tab2 = st.tabs(["$\huge 📝 RAW DATA $", "$\huge🚀 INSIGHTS $"])
-    
-    # RAW DATA TAB
-    with tab1:
-        # RAW DATA
-        col1,col2 = st.columns(2)
-        if col1.button("Click to view Raw data"):
-            col1.write(col.find_one())
-        # DATAFRAME FORMAT
-        if col2.button("Click to view Dataframe"):
-            col1.write(col.find_one())
-            col2.write(df)
-       
-    # INSIGHTS TAB
-    with tab2:
-        # GETTING USER INPUTS
-        country = st.sidebar.multiselect('Select a Country',sorted(df.Country.unique()),sorted(df.Country.unique()))
-        prop = st.sidebar.multiselect('Select Property_type',sorted(df.Property_type.unique()),sorted(df.Property_type.unique()))
-        room = st.sidebar.multiselect('Select Room_type',sorted(df.Room_type.unique()),sorted(df.Room_type.unique()))
-        price = st.slider('Select Price',df.Price.min(),df.Price.max(),(df.Price.min(),df.Price.max()))
-        
-        # CONVERTING THE USER INPUT INTO QUERY
-        query = f'Country in {country} & Room_type in {room} & Property_type in {prop} & Price >= {price[0]} & Price <= {price[1]}'
-        
-        # CREATING COLUMNS
-        col1,col2 = st.columns(2,gap='medium')
-        
-        with col1:
-            
-            # TOP 10 PROPERTY TYPES BAR CHART
-            df1 = df.query(query).groupby(["Property_type"]).size().reset_index(name="Listings").sort_values(by='Listings',ascending=False)[:10]
-            fig = px.bar(df1,
-                         title='Top 10 Property Types',
-                         x='Listings',
-                         y='Property_type',
-                         orientation='h',
-                         color='Property_type',
-                         color_continuous_scale=px.colors.sequential.Agsunset)
-            st.plotly_chart(fig,use_container_width=True) 
-        
-            # TOP 10 HOSTS BAR CHART
-            df2 = df.query(query).groupby(["Host_name"]).size().reset_index(name="Listings").sort_values(by='Listings',ascending=False)[:10]
-            fig = px.bar(df2,
-                         title='Top 10 Hosts with Highest number of Listings',
-                         x='Listings',
-                         y='Host_name',
-                         orientation='h',
-                         color='Host_name',
-                         color_continuous_scale=px.colors.sequential.Agsunset)
-            fig.update_layout(showlegend=False)
-            st.plotly_chart(fig,use_container_width=True)
-        
-        with col2:
-            
-            # TOTAL LISTINGS IN EACH ROOM TYPES PIE CHART
-            df1 = df.query(query).groupby(["Room_type"]).size().reset_index(name="counts")
-            fig = px.pie(df1,
-                         title='Total Listings in each Room_types',
-                         names='Room_type',
-                         values='counts',
-                         color_discrete_sequence=px.colors.sequential.Rainbow
-                        )
-            fig.update_traces(textposition='outside', textinfo='value+label')
-            st.plotly_chart(fig,use_container_width=True)
-            
-            # TOTAL LISTINGS BY COUNTRY CHOROPLETH MAP
-            country_df = df.query(query).groupby(['Country'],as_index=False)['Name'].count().rename(columns={'Name' : 'Total_Listings'})
-            fig = px.choropleth(country_df,
-                                title='Total Listings in each Country',
-                                locations='Country',
-                                locationmode='country names',
-                                color='Total_Listings',
-                                color_continuous_scale=px.colors.sequential.Plasma
-                               )
-            st.plotly_chart(fig,use_container_width=True)
-        
-# EXPLORE PAGE
-if selected == "Explore":
-    st.markdown("## Explore more about the Airbnb data")
-    
-    # GETTING USER INPUTS
-    country = st.sidebar.multiselect('Select a Country',sorted(df.Country.unique()),sorted(df.Country.unique()))
-    prop = st.sidebar.multiselect('Select Property_type',sorted(df.Property_type.unique()),sorted(df.Property_type.unique()))
-    room = st.sidebar.multiselect('Select Room_type',sorted(df.Room_type.unique()),sorted(df.Room_type.unique()))
-    price = st.slider('Select Price',df.Price.min(),df.Price.max(),(df.Price.min(),df.Price.max()))
-    
-    # CONVERTING THE USER INPUT INTO QUERY
-    query = f'Country in {country} & Room_type in {room} & Property_type in {prop} & Price >= {price[0]} & Price <= {price[1]}'
-    
-    # HEADING 1
-    st.markdown("## Price Analysis")
-    
-    # CREATING COLUMNS
-    col1,col2 = st.columns(2,gap='medium')
-    
-    with col1:
-        
-        # AVG PRICE BY ROOM TYPE BARCHART
-        pr_df = df.query(query).groupby('Room_type',as_index=False)['Price'].mean().sort_values(by='Price')
-        fig = px.bar(data_frame=pr_df,
-                     x='Room_type',
-                     y='Price',
-                     color='Price',
-                     title='Avg Price in each Room type'
-                    )
-        st.plotly_chart(fig,use_container_width=True)
-        
-        # HEADING 2
-        st.markdown("## Availability Analysis")
-        
-        # AVAILABILITY BY ROOM TYPE BOX PLOT
-        fig = px.box(data_frame=df.query(query),
-                     x='Room_type',
-                     y='Availability_365',
-                     color='Room_type',
-                     title='Availability by Room_type'
-                    )
-        st.plotly_chart(fig,use_container_width=True)
-        
-    with col2:
-        
-        # AVG PRICE IN COUNTRIES SCATTERGEO
-        country_df = df.query(query).groupby('Country',as_index=False)['Price'].mean()
-        fig = px.scatter_geo(data_frame=country_df,
-                                       locations='Country',
-                                       color= 'Price', 
-                                       hover_data=['Price'],
-                                       locationmode='country names',
-                                       size='Price',
-                                       title= 'Avg Price in each Country',
-                                       color_continuous_scale='agsunset'
-                            )
-        col2.plotly_chart(fig,use_container_width=True)
-        
-        # BLANK SPACE
-        st.markdown("#   ")
-        st.markdown("#   ")
-        
-        # AVG AVAILABILITY IN COUNTRIES SCATTERGEO
-        country_df = df.query(query).groupby('Country',as_index=False)['Availability_365'].mean()
-        country_df.Availability_365 = country_df.Availability_365.astype(int)
-        fig = px.scatter_geo(data_frame=country_df,
-                                       locations='Country',
-                                       color= 'Availability_365', 
-                                       hover_data=['Availability_365'],
-                                       locationmode='country names',
-                                       size='Availability_365',
-                                       title= 'Avg Availability in each Country',
-                                       color_continuous_scale='agsunset'
-                            )
-        st.plotly_chart(fig,use_container_width=True)
-        
-        
-        
-        
-        
-        
-        
+# Creating options menu
+select = option_menu(
+    menu_title=None,
+    options=["About", "Explore", "Creator"],
+    icons=["house", "search", "person-circle"],
+    default_index=2,
+    orientation="horizontal",
+    styles={"container": {"padding": "0!important", "background-color": "white", "size": "cover", "width": "100"},
+            "icon": {"color": "black", "font-size": "20px"},
+
+            "nav-link": {"font-size": "20px", "text-align": "center", "margin": "-2px", "--hover-color": "#004791"},
+            "nav-link-selected": {"background-color": "#004791"}})
+
+# configuring about
+if select=="About":
+    st.markdown("### :blue[Domain]: Travel Industry, Property Management and Tourism ")
+    st.markdown("### :blue[Technologies used]: Python scripting, Data Preprocessing, Visualization,EDA, Streamlit, MongoDb, PowerBI or Tableau")
+    st.markdown("### :blue[Overall]: This project aims to analyze Airbnb data using MongoDB Atlas, perform data cleaning and preparation, develop interactive geospatial visualizations, and create dynamic plots to gain insights into pricing variations, availability patterns, and location-based trends")
+
+# configuring explore
+if select == "Explore":
+ fl = st.file_uploader(":file_folder: Upload a file", type=(["csv", "txt", "xlsx", "xls"]))
+ if fl is not None:
+    filename = fl.name
+    st.write(filename)
+    df = pd.read_csv(filename, encoding="ISO-8859-1")
+ else:
+    df = pd.read_csv("Airbnb_data.csv", encoding="ISO-8859-1")
+ #creating sidebar
+ st.sidebar.header("Choose Filter: ")
+  
+ neighbourhood_group = st.sidebar.multiselect("Pick Neighbourhood_group", df["Neighbourhood_group"].unique())
+ if not neighbourhood_group:
+     df2 = df.copy()
+ else:
+     df2 = df[df["Neighbourhood_group"].isin(neighbourhood_group)]
+
+ neighbourhood = st.sidebar.multiselect("Pick the Neighbourhood", df2["Neighbourhood"].unique())
+ if not neighbourhood:
+     df3 = df2.copy()
+ else:
+     df3 = df2[df2["Neighbourhood"].isin(neighbourhood)]
+
+ if not neighbourhood_group and not neighbourhood:
+     filtered_df = df
+ elif not neighbourhood:
+     filtered_df = df[df["Neighbourhood_group"].isin(neighbourhood_group)]
+ elif not neighbourhood_group:
+     filtered_df = df[df["Neighbourhood"].isin(neighbourhood)]
+ elif neighbourhood:
+     filtered_df = df3[df["Neighbourhood"].isin(neighbourhood)]
+ elif neighbourhood_group:
+     filtered_df = df3[df["Neighbourhood_group"].isin(neighbourhood_group)]
+ elif neighbourhood_group and neighbourhood:
+     filtered_df = df3[df["Neighbourhood_group"].isin(neighbourhood_group) & df3["Neighbourhood"].isin(neighbourhood)]
+ else:
+     filtered_df = df3[df3["Neighbourhood_group"].isin(neighbourhood_group) & df3["Neighbourhood"].isin(neighbourhood)]
+ 
+ room_type_df = filtered_df.groupby(by=["Room_type"], as_index=False)["Price"].sum()
+
+ col1, col2 = st.columns(2)
+ with col1:
+    st.subheader("Type of Rooms")
+    fig = px.bar(room_type_df, x="Room_type", y="Price", text=['${:,.2f}'.format(x) for x in room_type_df["Price"]],
+                 template="seaborn")
+    st.plotly_chart(fig, use_container_width=True, height=200)
+
+ cl1, cl2 = st.columns((2))
+ with cl1:
+    with st.expander("Room wise price table"):
+        st.write(room_type_df.style.background_gradient(cmap="Blues"))
+        csv = room_type_df.to_csv(index=False).encode('utf-8')
+        st.download_button("Download Data", data=csv, file_name="Room_type.csv", mime="text/csv",
+                           help='Click here to download the data as a CSV file')
+ 
+ with cl2:
+    with st.expander("Neighbourhood group wise price"):
+        neighbourhood_group = filtered_df.groupby(by="Neighbourhood_group", as_index=False)["Price"].sum()
+        st.write(neighbourhood_group.style.background_gradient(cmap="Blues"))
+        csv = neighbourhood_group.to_csv(index=False).encode('utf-8')
+        st.download_button("Download Data", data=csv, file_name="Neighbourhood_group.csv", mime="text/csv",
+                           help='Click here to download the data as a CSV file')
+  #creating scatterplot      
+ data1 = px.scatter(filtered_df, x="Neighbourhood_group", y="Neighbourhood", color="Room_type")
+ data1['layout'].update(title="Rooms in the Neighbourhood and Neighbourhood_Group wise data using Scatter Plot.",
+                        titlefont=dict(size=20), xaxis=dict(title="Neighbourhood_Group", titlefont=dict(size=20)),
+                        yaxis=dict(title="Neighbourhood", titlefont=dict(size=20)))
+ st.plotly_chart(data1, use_container_width=True)
+
+ with st.expander("Detailed Room Availability and Price View Data in the Neighbourhood"):
+     st.write(filtered_df.iloc[:500, 1:20:2].style.background_gradient(cmap="Blues"))
+ csv = df.to_csv(index=False).encode('utf-8')
+ st.download_button('Download Data', data=csv, file_name="Data.csv", mime="text/csv")
+
+ import plotly.figure_factory as ff
+
+ st.subheader(":point_right: Neighbourhood_group wise Room_type and Minimum stay nights")
+ with st.expander("Summary_Table"):
+    df_sample = df[0:5][["Neighbourhood_group", "Neighbourhood",  "Room_type", "Price", "Minimum_nights", "Host_name"]]
+    fig = ff.create_table(df_sample, colorscale="Blues")
+    st.plotly_chart(fig, use_container_width=True)
+ 
+
+if select=="Creator":
+    st.write('------------------')
+    col3,col4=st.columns(2)
+    image=Image.open('airbnb.png')
+    with col3:
+     col3.markdown("### :blue[NAME] : ***M GOBINATH***")
+     col3.markdown("### :blue[Mail ID] : ***gobimurugan71@gmail.com***")
+     col3.markdown("### :blue[GITHUB URL] : ***https://github.com/Go7bi***")
+     col3.markdown('### :blue[ ***Data Scientist Aspirant***]')
+    with col4:
+        st.image(image) 
